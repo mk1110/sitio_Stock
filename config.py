@@ -2,7 +2,7 @@ import os
 
 class Config:
     # Clave secreta para cookies/sesiones (en producción la toma de Railway)
-    SECRET_KEY = os.environ.get('SECRET_KEY', 'dev-key-segura-mariano-12345')
+    SECRET_KEY = os.environ.get('SECRET_KEY', '240314Mk')
 
     # Detección y formato de la URL de base de datos para Railway
     db_url = os.environ.get('DATABASE_URL') or os.environ.get('MYSQL_URL')
