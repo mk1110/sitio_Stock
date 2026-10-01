@@ -13,6 +13,7 @@ class Establishment(db.Model):
     users = db.relationship('User', backref='establishment', lazy=True)
     categories = db.relationship('Category', backref='establishment', lazy=True)
     products = db.relationship('Product', backref='establishment', lazy=True)
+    tasks = db.relationship('Task', backref='establishment', lazy=True)
 
 class User(UserMixin, db.Model):
     __tablename__ = 'users'
@@ -27,6 +28,24 @@ class User(UserMixin, db.Model):
     # Relaciones
     movements = db.relationship('StockMovement', backref='user', lazy=True)
     notifications = db.relationship('Notification', backref='user', lazy=True)
+
+    # Tareas del Personal. Se especifican las foreign_keys porque Task referencia
+    # a users.id dos veces (asignado_a / creado_por).
+    # Sin cascade: reasignar una tarea no la borra ni le cambia el id, y la FK
+    # impide borrar un usuario que tenga tareas asignadas.
+    assigned_tasks = db.relationship(
+        'Task',
+        foreign_keys='Task.assigned_to_id',
+        backref=db.backref('assignee', lazy=True),
+        lazy=True
+    )
+    created_tasks = db.relationship(
+        'Task',
+        foreign_keys='Task.created_by_id',
+        backref=db.backref('creator', lazy=True),
+        lazy=True
+    )
+    task_comments = db.relationship('TaskComment', backref='user', lazy=True)
 
     # Métodos para manejo de contraseñas
     def set_password(self, password):

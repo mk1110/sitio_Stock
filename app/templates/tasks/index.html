@@ -1,0 +1,227 @@
+{% extends 'base.html' %}
+
+{% block title %}Tareas del Personal{% endblock %}
+
+{% block content %}
+<!-- Resumen -->
+<div class="row g-2 mb-4">
+    <div class="col-6 col-md">
+        <div class="card border-0 shadow-sm text-center h-100">
+            <div class="card-body py-3">
+                <div class="fs-4 fw-bold">{{ counters.total }}</div>
+                <small class="text-muted">Total</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md">
+        <div class="card border-0 shadow-sm text-center h-100 border-start border-2 border-secondary">
+            <div class="card-body py-3">
+                <div class="fs-4 fw-bold">{{ counters.pending }}</div>
+                <small class="text-muted">Pendientes</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md">
+        <div class="card border-0 shadow-sm text-center h-100 border-start border-2 border-info">
+            <div class="card-body py-3">
+                <div class="fs-4 fw-bold">{{ counters.in_progress }}</div>
+                <small class="text-muted">En Progreso</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md">
+        <div class="card border-0 shadow-sm text-center h-100 border-start border-2 border-success">
+            <div class="card-body py-3">
+                <div class="fs-4 fw-bold">{{ counters.done }}</div>
+                <small class="text-muted">Completadas</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md">
+        <div class="card border-0 shadow-sm text-center h-100 border-start border-2 border-danger">
+            <div class="card-body py-3">
+                <div class="fs-4 fw-bold text-danger">{{ counters.overdue }}</div>
+                <small class="text-muted">Vencidas</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Alta de tarea (solo administrador) -->
+    {% if current_user.is_admin %}
+    <div class="col-lg-4 mb-4">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-white py-3">
+                <h5 class="mb-0 fw-bold fs-6">Nueva Tarea</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('tasks.create_task') }}">
+                    <div class="mb-3">
+                        <label class="form-label">Título <span class="text-danger">*</span></label>
+                        <input type="text" name="title" class="form-control" required maxlength="150"
+                               placeholder="Ej: Revisar el stock de descartables">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Descripción</label>
+                        <textarea name="description" class="form-control" rows="3"
+                                  placeholder="Detalles de la tarea..."></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Asignar a <span class="text-danger">*</span></label>
+                        <select name="assigned_to_id" class="form-select" required>
+                            <option value="">-- Seleccionar personal --</option>
+                            {% for member in staff %}
+                            <option value="{{ member.id }}">{{ member.username }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="row">
+                        <div class="col-6 mb-3">
+                            <label class="form-label">Prioridad</label>
+                            <select name="priority" class="form-select">
+                                {% for value, label in task_priority_choices %}
+                                <option value="{{ value }}" {% if value == 'MEDIUM' %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-6 mb-3">
+                            <label class="form-label">Fecha Límite</label>
+                            <input type="date" name="due_date" class="form-control">
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">Asignar Tarea</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="{% if current_user.is_admin %}col-lg-8{% else %}col-12{% endif %}">
+        <!-- Filtros -->
+        <form method="GET" action="{{ url_for('tasks.index') }}" class="d-flex flex-wrap gap-2 mb-3">
+            <input type="text" name="q" value="{{ search_query }}" class="form-control" style="max-width: 260px;"
+                   placeholder="Buscar por título o descripción...">
+            <select name="status" class="form-select" style="max-width: 190px;">
+                <option value="">Todos los estados</option>
+                {% for value, label in task_status_choices %}
+                <option value="{{ value }}" {% if value == selected_status %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+            <select name="priority" class="form-select" style="max-width: 160px;">
+                <option value="">Prioridad: todas</option>
+                {% for value, label in task_priority_choices %}
+                <option value="{{ value }}" {% if value == selected_priority %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+            <div class="form-check d-flex align-items-center ms-1">
+                <input class="form-check-input mt-0" type="checkbox" name="done" value="1" id="showDone"
+                       {% if show_done %}checked{% endif %}>
+                <label class="form-check-label small" for="showDone">Mostrar completadas</label>
+            </div>
+            <button type="submit" class="btn btn-secondary">Filtrar</button>
+            {% if search_query or selected_status or selected_priority or show_done %}
+            <a href="{{ url_for('tasks.index') }}" class="btn btn-outline-secondary">Limpiar</a>
+            {% endif %}
+        </form>
+
+        <!-- Listado -->
+        <div class="card border-0 shadow-sm">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Tarea</th>
+                                <th>Asignada a</th>
+                                <th class="text-center">Prioridad</th>
+                                <th class="text-center">Estado</th>
+                                <th class="text-center">Vence</th>
+                                <th class="text-center">Comentarios</th>
+                                <th class="text-end pe-3">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for task in tasks %}
+                            <tr class="{% if task.is_overdue %}table-danger{% endif %}">
+                                <td>
+                                    <a href="{{ url_for('tasks.detail', task_id=task.id) }}"
+                                       class="fw-bold text-decoration-none">{{ task.title }}</a>
+                                    <div class="small text-muted text-truncate" style="max-width: 320px;">
+                                        {{ task.description or 'Sin descripción' }}
+                                    </div>
+                                </td>
+                                <td>{{ task.assignee.username }}</td>
+                                <td class="text-center">
+                                    <span class="badge {{ task.priority_badge }}">{{ task.priority_label }}</span>
+                                </td>
+                                <td class="text-center">
+                                    <span class="badge {{ task.status_badge }}">{{ task.status_label }}</span>
+                                    {% if task.completed_at %}
+                                    <div class="small text-muted">
+                                        {{ task.completed_at.strftime('%d/%m/%Y') }}
+                                    </div>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">
+                                    {% if task.due_date %}
+                                        <span class="{% if task.is_overdue %}text-danger fw-bold{% endif %}">
+                                            {{ task.due_date.strftime('%d/%m/%Y') }}
+                                        </span>
+                                        {% if task.is_overdue %}
+                                        <div class="small text-danger">Vencida</div>
+                                        {% endif %}
+                                    {% else %}
+                                    <span class="text-muted">—</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">
+                                    {% if task.comments %}
+                                    <a href="{{ url_for('tasks.detail', task_id=task.id) }}"
+                                       class="badge bg-light text-dark border text-decoration-none">
+                                        💬 {{ task.comments|length }}
+                                    </a>
+                                    {% else %}
+                                    <span class="text-muted">—</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end pe-3">
+                                    <!-- Cambio de estado rápido -->
+                                    {% if task.status == 'PENDING' %}
+                                    <form action="{{ url_for('tasks.update_status', task_id=task.id) }}" method="POST" class="d-inline">
+                                        <input type="hidden" name="status" value="IN_PROGRESS">
+                                        <button type="submit" class="btn btn-sm btn-outline-info me-1">▶ Iniciar</button>
+                                    </form>
+                                    {% elif task.status == 'IN_PROGRESS' %}
+                                    <form action="{{ url_for('tasks.update_status', task_id=task.id) }}" method="POST" class="d-inline">
+                                        <input type="hidden" name="status" value="DONE">
+                                        <button type="submit" class="btn btn-sm btn-outline-success me-1">✔ Completar</button>
+                                    </form>
+                                    {% endif %}
+
+                                    <a href="{{ url_for('tasks.detail', task_id=task.id) }}"
+                                       class="btn btn-sm btn-outline-secondary me-1">Ver</a>
+
+                                    {% if current_user.is_admin %}
+                                    <form action="{{ url_for('tasks.delete_task', task_id=task.id) }}" method="POST" class="d-inline"
+                                          onsubmit="return confirm('¿Seguro que querés eliminar la tarea &quot;{{ task.title }}&quot;? Se borrarán también sus comentarios.');">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger">🗑</button>
+                                    </form>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="7" class="text-center py-4 text-muted">
+                                    No hay tareas registradas o coincidentes con los filtros.
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

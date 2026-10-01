@@ -5,7 +5,8 @@ class StockMovement(db.Model):
     __tablename__ = 'stock_movements'
 
     id = db.Column(db.Integer, primary_key=True)
-    product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False)
+    # ondelete='CASCADE' garantiza en la base que el historial se borre junto al producto
+    product_id = db.Column(db.Integer, db.ForeignKey('products.id', ondelete='CASCADE'), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     movement_type = db.Column(db.Enum('IN', 'OUT', 'ADJUSTMENT', name='movement_types'), nullable=False)
     quantity = db.Column(db.Integer, nullable=False)

@@ -1,5 +1,6 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 from flask_login import login_required, current_user
+from sqlalchemy.exc import IntegrityError
 from app.extensions import db
 from app.models import Product, Category, User, StockMovement, Notification
 from app.utils.decorators import admin_required
@@ -116,10 +117,38 @@ def delete_product(product_id):
         return redirect(url_for('products.index'))
 
     product_name = product.name
-    db.session.delete(product)
-    db.session.commit()
+    movements_count = len(product.movements)
 
-    flash(f'El producto "{product_name}" fue eliminado del catálogo.', 'warning')
+    try:
+        # cascade='all, delete-orphan' + ondelete='CASCADE' en la FK:
+        # se borran también los movimientos de stock del producto.
+        db.session.delete(product)
+        db.session.flush()
+
+        # Avisar a los usuarios del establecimiento, como se hace al crear productos
+        users = User.query.filter_by(establishment_id=current_user.establishment_id).all()
+        for u in users:
+            db.session.add(Notification(
+                user_id=u.id,
+                message=f'El producto "{product_name}" fue eliminado del catálogo.'
+            ))
+
+        db.session.commit()
+    except IntegrityError:
+        # Si algún registro dependiente no se limpiara, no debe devolver un 500
+        db.session.rollback()
+        flash(f'No se pudo eliminar "{product_name}" porque tiene registros asociados.', 'danger')
+        return redirect(url_for('products.index'))
+
+    if movements_count:
+        flash(
+            f'El producto "{product_name}" fue eliminado del catálogo junto con '
+            f'su historial de {movements_count} movimiento(s).',
+            'warning'
+        )
+    else:
+        flash(f'El producto "{product_name}" fue eliminado del catálogo.', 'warning')
+
     return redirect(url_for('products.index'))
 
 
@@ -153,6 +182,42 @@ def categories():
 
     categories_list = Category.query.filter_by(establishment_id=current_user.establishment_id).all()
     return render_template('admin/categories.html', categories=categories_list)
+
+
+@admin_bp.route('/category/<int:category_id>/delete', methods=['POST'])
+def delete_category(category_id):
+    category = Category.query.get_or_404(category_id)
+
+    if category.establishment_id != current_user.establishment_id:
+        flash('Acción no permitida.', 'danger')
+        return redirect(url_for('admin.categories'))
+
+    category_name = category.name
+
+    # products.category_id es NOT NULL, así que no se puede dejar la categoría
+    # huérfana: se bloquea el borrado mientras tenga insumos asociados.
+    products_count = Product.query.filter_by(category_id=category.id).count()
+
+    if products_count > 0:
+        plural = 'insumo' if products_count == 1 else 'insumos'
+        flash(
+            f'No se puede eliminar la categoría "{category_name}" porque tiene '
+            f'{products_count} {plural} asociado(s). Reasigná esos insumos a otra '
+            f'categoría o eliminalos primero.',
+            'danger'
+        )
+        return redirect(url_for('admin.categories'))
+
+    try:
+        db.session.delete(category)
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        flash(f'No se pudo eliminar la categoría "{category_name}".', 'danger')
+        return redirect(url_for('admin.categories'))
+
+    flash(f'Categoría "{category_name}" eliminada.', 'warning')
+    return redirect(url_for('admin.categories'))
 
 
 # -------------------------------------------------------------------

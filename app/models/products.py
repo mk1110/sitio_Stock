@@ -26,7 +26,9 @@ class Product(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relaciones
-    movements = db.relationship('StockMovement', backref='product', lazy=True)
+    # cascade='all, delete-orphan' + ondelete='CASCADE' en la FK: al borrar el
+    # producto se eliminan también sus movimientos de stock (historial).
+    movements = db.relationship('StockMovement', backref='product', lazy=True, cascade='all, delete-orphan')
 
     @property
     def is_low_stock(self):

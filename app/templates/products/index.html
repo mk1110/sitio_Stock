@@ -92,6 +92,10 @@
                             <button class="btn btn-sm btn-outline-warning" data-bs-toggle="modal" data-bs-target="#adjustModal{{ product.id }}">
                                 ⚙️ Ajustar
                             </button>
+                            <!-- Botón Eliminar Insumo (admin) -->
+                            <button class="btn btn-sm btn-outline-danger ms-1" data-bs-toggle="modal" data-bs-target="#deleteModal{{ product.id }}">
+                                🗑
+                            </button>
                             {% endif %}
                         </td>
                     </tr>
@@ -151,6 +155,35 @@
                                     <div class="modal-footer">
                                         <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
                                         <button type="submit" class="btn btn-warning">Guardar Ajuste</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Modal Eliminar Insumo -->
+                    <div class="modal fade" id="deleteModal{{ product.id }}" tabindex="-1" aria-hidden="true">
+                        <div class="modal-dialog modal-dialog-centered">
+                            <div class="modal-content">
+                                <form action="{{ url_for('admin.delete_product', product_id=product.id) }}" method="POST">
+                                    <div class="modal-header bg-danger-subtle">
+                                        <h5 class="modal-title">Eliminar Insumo</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <p class="mb-1">¿Seguro que querés eliminar <strong>{{ product.name }}</strong>?</p>
+                                        {% if product.movements %}
+                                        <div class="alert alert-warning py-2 small mb-0">
+                                            Esta acción <strong>no se puede deshacer</strong>: también se eliminará
+                                            su historial de {{ product.movements|length }} movimiento(s) de stock.
+                                        </div>
+                                        {% else %}
+                                        <p class="text-muted small mb-0">Esta acción no se puede deshacer.</p>
+                                        {% endif %}
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
+                                        <button type="submit" class="btn btn-danger">Sí, eliminar</button>
                                     </div>
                                 </form>
                             </div>
